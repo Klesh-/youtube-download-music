@@ -224,7 +224,7 @@ def download_all_videos_in_list(list: list[str]):
 
 parser = ArgumentParser()
 parser.add_argument("-d", "--dry-run", help="Dry run", action="store_true")
-parser.add_argument("-m", "--limit", help="Max songs", type=int, default='-1')
+parser.add_argument("-m", "--limit", help="Max songs", type=int, default=None)
 parser.add_argument("-t", "--timeout", help="Socket read timeout in seconds", type=int, default=timeout_sec)
 parser.add_argument("-r", "--max-attempts", help="Max download retries", type=int, default=max_attempts)
 parser.add_argument("--verbose", help="Verbose output", action="store_true")
