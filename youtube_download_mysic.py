@@ -50,7 +50,7 @@ def record_error(video, e):
         
 def dump_errors(): 
     if len(errors.keys()) > 0:
-        log_warn(f"\nSome videos was not downloaded:")
+        log_warn(f"\nSome videos were not downloaded:")
         for vid, err in errors.items():
             log_warn(f'{vid}: {err}')
 
