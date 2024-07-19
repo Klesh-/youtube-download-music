@@ -113,14 +113,24 @@ def set_media_tags(yt: YouTube, file: str):
 
 def download_audio_stream_with_attempts(yt: YouTube, download_file: str, output_file: str):
     try:
-        yt.streams.filter(only_audio=True) \
-            .filter(mime_type="audio/mp4").order_by("abr").desc().first() \
-            .download(filename=download_file, max_retries=max_attempts,timeout=timeout_sec)
-            
+        attempt = 0
+        while True:
+            try:
+                yt.streams.filter(only_audio=True) \
+                    .filter(mime_type="audio/mp4").order_by("abr").desc().first() \
+                    .download(filename=download_file, max_retries=max_attempts,timeout=timeout_sec)
+                break
+            except Exception as e:
+                attempt += 1
+                if attempt < max_attempts:
+                    log_warn(f"Trying again: {e}")
+                else:
+                    raise
+                
         ffmpreg_trim_audio(download_file, output_file, yt.length)
     finally:
         silent_remove_file(download_file)
-
+            
 def parse_video_link(url: str) -> YouTube:  
     if url.startswith('https'):
         return YouTube(url)
