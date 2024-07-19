@@ -10,6 +10,7 @@
             "args": [
                "-l", "https://www.youtube.com/watch?list=UULFfOMRd7zQU-KUyKxnT_6Ekw", 
                "--missing", 
+               "--tags", 
                "--limit", "1"
             ],
         }

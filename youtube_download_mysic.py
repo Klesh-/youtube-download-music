@@ -3,14 +3,18 @@
 import ffmpeg  
 import os, errno
 import scrapetube
+import music_tag
+import requests
+import re
+import io
+
 from pytube import YouTube
 from argparse import ArgumentParser
 from urllib import parse
 from colorama import init as colorama_init
 from colorama import Fore
-import music_tag
-import requests
-import re
+from PIL import Image
+
 
 colorama_init()
 
@@ -24,6 +28,7 @@ max_attempts = 5
 timeout_sec = 120
 download_folder = None
 bad_symbols = '[^a-zA-Z0-9\s\-+_=()\[\]&^%$#@!]'
+thumbnail_size = 512
 
 def log_info(*values: object):
     print(f"{Fore.GREEN}[INFO]{Fore.RESET} ", end="")
@@ -63,6 +68,28 @@ def silent_remove_file(filename: str):
         if e.errno != errno.ENOENT:
             raise
         
+def generate_square_thumbnail(url: str, size: int = thumbnail_size) :
+    img = Image.open(io.BytesIO(requests.get(url, stream=True).content))
+    img.thumbnail((size, size))
+
+    width, height = img.size
+    if width > height:
+        left = (width - height) / 2
+        right = (width + height) / 2
+        top = 0
+        bottom = height
+    else:
+        left = 0
+        right = width
+        top = (height - width) / 2
+        bottom = (height + width) / 2
+    
+    img = img.crop((left, top, right, bottom))
+
+    bytes = io.BytesIO()
+    img.save(bytes, format='PNG')
+    return bytes.getvalue()
+
 def ffmpreg_trim_audio(input_file: str, output_file: str, seconds: int):
     log_info(f"Trimming audio {input_file}")
     
@@ -79,7 +106,7 @@ def set_media_tags(yt: YouTube, file: str):
         tags = music_tag.load_file(file)
         tags['title'] = yt.title
         tags['artist'] = yt.author
-        tags['artwork'] = requests.get(yt.thumbnail_url).content
+        tags['artwork'] = generate_square_thumbnail(yt.thumbnail_url)
         tags.save()
     except Exception as e:
         log_warn(f"Cannot set music tags: {e}")
@@ -120,10 +147,10 @@ def download_video_audio(video_url: str, folder='.'):
     output_file = os.path.join(folder, f"{yt.video_id}.m4a")
     final_file = os.path.join(folder, f"{re.sub(bad_symbols, '-', vid_name)}.m4a")
     
-    if missing_only and (os.path.exists(output_file) or os.path.exists(final_file)):
+    if missing_only and os.path.exists(final_file):
         log_info(f"Already downloaded")
         if tags_only:
-            set_media_tags(yt, output_file)
+            set_media_tags(yt, final_file)
         return
 
     download_audio_stream_with_attempts(yt, download_file, output_file)
