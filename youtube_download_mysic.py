@@ -7,6 +7,7 @@ import music_tag
 import requests
 import re
 import io
+import math
 
 from pytube import YouTube
 from argparse import ArgumentParser
@@ -22,7 +23,7 @@ dry_run = False
 limit = None
 errors = {}
 missing_only = False
-tags_only = False
+tags_update = False
 verbose = False
 max_attempts = 5
 timeout_sec = 120
@@ -68,7 +69,23 @@ def silent_remove_file(filename: str):
         if e.errno != errno.ENOENT:
             raise
         
+def duration_str(seconds):
+    t = ""
+    h = math.floor(seconds / 3600)
+    if h > 0:
+        t += str(h).rjust(2,'0') + ':'
+    
+    m = str(math.floor((seconds % 3600) / 60)).rjust(2, '0')
+    s = str(seconds % 60).rjust(2, '0')
+    t += f'{m}:{s}'    
+    return t;
+        
 def generate_square_thumbnail(url: str, size: int = thumbnail_size) :
+    log_info(f"Generating song thumbnail: {url}", size)
+
+    if dry_run:
+        return
+    
     img = Image.open(io.BytesIO(requests.get(url, stream=True).content))
     img.thumbnail((size, size))
 
@@ -93,6 +110,9 @@ def generate_square_thumbnail(url: str, size: int = thumbnail_size) :
 def ffmpreg_trim_audio(input_file: str, output_file: str, seconds: int):
     log_info(f"Trimming audio {input_file}")
     
+    if dry_run:
+        return
+    
     audio_input = ffmpeg.input(input_file)
     audio_cut = audio_input.audio.filter('atrim', duration=seconds)
     audio_output = ffmpeg.output(audio_cut, output_file)
@@ -102,6 +122,10 @@ def ffmpreg_trim_audio(input_file: str, output_file: str, seconds: int):
 
 def set_media_tags(yt: YouTube, file: str):
     log_info(f"Updating music tags: {file}")
+    
+    if dry_run:
+        return
+    
     try:
         tags = music_tag.load_file(file)
         tags['title'] = yt.title
@@ -112,6 +136,11 @@ def set_media_tags(yt: YouTube, file: str):
         log_warn(f"Cannot set music tags: {e}")
 
 def download_audio_stream_with_attempts(yt: YouTube, download_file: str, output_file: str):
+    log_info(f"Downloading video: {yt.title}")
+    
+    if dry_run:
+        return
+    
     try:
         attempt = 0
         while True:
@@ -144,25 +173,25 @@ def download_video_audio(video_url: str, folder='.'):
     if yt.author.lower() not in yt.title.lower():
         vid_name = f'{yt.author} - {yt.title}'
     
-    log_info(f"Downloading video: {vid_name}")
+    output_file = os.path.join(folder, f"{yt.video_id}.m4a")
+    
+    log_info("")
+    log_info(f"Video: {vid_name} | {duration_str(yt.length)}")
     log_info(f" > {yt.watch_url}")
         
-    if dry_run == True:
-        return
-    
-    if not os.path.exists(folder):
-        os.makedirs(folder, exist_ok=True)
-    
-    download_file = os.path.join(folder, f"{yt.video_id}.download.mp4")
-    output_file = os.path.join(folder, f"{yt.video_id}.m4a")
     final_file = os.path.join(folder, f"{re.sub(bad_symbols, '-', vid_name)}.m4a")
-    
-    if missing_only and os.path.exists(final_file):
-        log_info(f"Already downloaded")
-        if tags_only:
+        
+    if not os.path.exists(folder) and not dry_run:
+        os.makedirs(folder, exist_ok=True)
+        
+    if os.path.exists(final_file):
+        if tags_update and missing_only:
             set_media_tags(yt, final_file)
-        return
-
+        if missing_only:
+            log_info(f"Already downloaded")
+            return
+        
+    download_file = os.path.join(folder, f"{yt.video_id}.download.mp4")
     download_audio_stream_with_attempts(yt, download_file, output_file)
     set_media_tags(yt, output_file)
     os.rename(output_file, final_file)
@@ -178,9 +207,9 @@ def download_all_videos_in_channel(channel_url: str):
         
     log_info(f"ChannelId: {channel_id}")
    
+    done = 0
     folder = download_folder or channel_id
     
-    done = 0
     for video in scrapetube.get_channel(channel_id):
         video_id = str(video['videoId'])
         try:  
@@ -203,9 +232,9 @@ def download_all_videos_in_playlist(playlist_url: str):
     
     log_info(f"ListId: {list_id}")
    
-    folder = download_folder or list_id
-   
     done = 0
+    folder = download_folder or list_id
+    
     for video in scrapetube.get_playlist(list_id):
         video_id = str(video['videoId'])
         try:
@@ -221,9 +250,11 @@ def download_all_videos_in_list(list: list[str]):
     log_info(f"Downloading {len(list)} videos")
 
     done = 0
+    folder = download_folder or "."
+
     for vid in list:
         try:
-            download_video_audio(vid)  
+            download_video_audio(vid, folder)  
         except Exception as e:
             record_error(vid, e)
         
@@ -239,7 +270,7 @@ parser.add_argument("-t", "--timeout", help="Socket read timeout in seconds", ty
 parser.add_argument("-r", "--max-attempts", help="Max download retries", type=int, default=max_attempts)
 parser.add_argument("--verbose", help="Verbose output", action="store_true")
 parser.add_argument("--missing", help="Download missing only", action="store_true")
-parser.add_argument("--tags", help="Update tags only", action="store_true")
+parser.add_argument("--tags", help="Update tags of exists files", action="store_true")
 parser.add_argument("--dir", help="Download directory", default=None)
 
 group = parser.add_mutually_exclusive_group()
@@ -253,7 +284,7 @@ dry_run = args.dry_run
 limit = args.limit
 verbose = args.verbose
 missing_only = args.missing
-tags_only = args.tags
+tags_update = args.tags
 max_attempts = args.max_attempts
 timeout_sec = args.timeout
 download_folder = args.dir
