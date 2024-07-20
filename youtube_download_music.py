@@ -28,7 +28,7 @@ verbose = False
 max_attempts = 5
 timeout_sec = 120
 download_folder = None
-bad_symbols = '[^a-zA-Z0-9\s\-+_=()\[\]&^%$#@!]'
+bad_symbols = '[^a-zA-Z0-9\s\-+_=\.,\?()\[\]&^%$#@!\"\';:]'
 thumbnail_size = 512
 
 def log_info(*values: object):
@@ -173,17 +173,19 @@ def download_video_audio(video_url: str, folder='.'):
     if yt.author.lower() not in yt.title.lower():
         vid_name = f'{yt.author} - {yt.title}'
     
-    output_file = os.path.join(folder, f"{yt.video_id}.m4a")
-    
     log_info("")
     log_info(f"Video: {vid_name} | {duration_str(yt.length)}")
     log_info(f" > {yt.watch_url}")
         
-    final_file = os.path.join(folder, f"{re.sub(bad_symbols, '-', vid_name)}.m4a")
-        
     if not os.path.exists(folder) and not dry_run:
         os.makedirs(folder, exist_ok=True)
-        
+
+    final_file = os.path.join(folder, f"{vid_name}.m4a")
+    final_file_fallback = os.path.join(folder, f"{re.sub(bad_symbols, '-', vid_name)}.m4a")
+
+    if os.path.exists(final_file_fallback):
+        final_file = final_file_fallback
+
     if os.path.exists(final_file):
         if tags_update and missing_only:
             set_media_tags(yt, final_file)
@@ -192,9 +194,17 @@ def download_video_audio(video_url: str, folder='.'):
             return
         
     download_file = os.path.join(folder, f"{yt.video_id}.download.mp4")
+    output_file = os.path.join(folder, f"{yt.video_id}.m4a")
     download_audio_stream_with_attempts(yt, download_file, output_file)
     set_media_tags(yt, output_file)
-    os.rename(output_file, final_file)
+    
+    try:
+        os.rename(output_file, final_file)
+    except:
+        log_warn("File name contains bad symbols")
+        os.rename(output_file, final_file_fallback)
+
+    log_info("Done")
 
 def download_all_videos_in_channel(channel_url: str):
     log_info(f"Downloading all videos of channel: {channel_url}")
