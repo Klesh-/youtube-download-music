@@ -1,0 +1,7 @@
+ffmpeg-python
+scrapetube
+music_tag
+requests
+pytube
+colorama
+pillow

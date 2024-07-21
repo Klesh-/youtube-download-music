@@ -1,6 +1,6 @@
-#!/usr/bin/env python3.10
+#!/usr/bin/env python3
 
-import ffmpeg  
+import ffmpeg
 import os, errno
 import scrapetube
 import music_tag
@@ -16,7 +16,6 @@ from colorama import init as colorama_init
 from colorama import Fore
 from PIL import Image
 
-
 colorama_init()
 
 dry_run = False
@@ -28,7 +27,7 @@ verbose = False
 max_attempts = 5
 timeout_sec = 120
 download_folder = None
-bad_symbols = '[^a-zA-Z0-9\s\-+_=\.,\?()\[\]&^%$#@!\"\';:]'
+bad_symbols = r"[^a-zA-Z0-9\s\-+_=\.,\?()\[\]&^%$#@!\"\';:]"
 thumbnail_size = 512
 
 def log_info(*values: object):
