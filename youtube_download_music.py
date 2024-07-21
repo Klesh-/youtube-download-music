@@ -56,8 +56,8 @@ def dump_errors():
             log_warn(f'{vid}: {err}')
 
 
-def is_limit_reached(count: int):
-    if limit is not None and count >= limit:
+def is_limit_reached(done: int):
+    if limit is not None and done >= limit:
         log_warn(f"Limit reached {limit}")
         return True
     return False
@@ -192,7 +192,11 @@ def download_video_audio(video_url: str, folder='.'):
         if missing_only:
             log_info(f"Already downloaded")
             return
+    
         
+    if dry_run:
+        return
+    
     download_file = os.path.join(folder, f"{yt.video_id}.download.mp4")
     output_file = os.path.join(folder, f"{yt.video_id}.m4a")
     download_audio_stream_with_attempts(yt, download_file, output_file)
@@ -203,8 +207,6 @@ def download_video_audio(video_url: str, folder='.'):
     except:
         log_warn("File name contains bad symbols")
         os.rename(output_file, final_file_fallback)
-
-    log_info("Done")
 
 def download_all_videos_in_channel(channel_url: str):
     log_info(f"Downloading all videos of channel: {channel_url}")
@@ -220,7 +222,7 @@ def download_all_videos_in_channel(channel_url: str):
     done = 0
     folder = download_folder or channel_id
     
-    for video in scrapetube.get_channel(channel_id):
+    for video in scrapetube.get_channel(channel_id, limit=limit):
         video_id = str(video['videoId'])
         try:  
             download_video_audio(video_id, folder)
@@ -245,14 +247,14 @@ def download_all_videos_in_playlist(playlist_url: str):
     done = 0
     folder = download_folder or list_id
     
-    for video in scrapetube.get_playlist(list_id):
+    for video in scrapetube.get_playlist(list_id, limit=limit):
         video_id = str(video['videoId'])
         try:
             download_video_audio(video_id, folder)
         except Exception as e:
             record_error(video_id, e)
 
-        done =+ 1
+        done += 1
         if is_limit_reached(done):
             return
 
@@ -268,10 +270,9 @@ def download_all_videos_in_list(list: list[str]):
         except Exception as e:
             record_error(vid, e)
         
-        done =+ 1
+        done += 1
         if is_limit_reached(done):
             return
-
 
 parser = ArgumentParser()
 parser.add_argument("-d", "--dry-run", help="Dry run", action="store_true")
