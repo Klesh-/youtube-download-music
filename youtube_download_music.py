@@ -29,6 +29,7 @@ timeout_sec = 120
 download_folder = None
 bad_symbols = r"[^a-zA-Z0-9\s\-+_=\.,\?()\[\]&^%$#@!\"\';:]"
 thumbnail_size = 512
+order = "newest"
 
 def log_info(*values: object):
     print(f"{Fore.GREEN}[INFO]{Fore.RESET} ", end="")
@@ -129,6 +130,7 @@ def set_media_tags(yt: YouTube, file: str):
         tags = music_tag.load_file(file)
         tags['title'] = yt.title
         tags['artist'] = yt.author
+        tags['year'] = yt.publish_date.year
         tags['artwork'] = generate_square_thumbnail(yt.thumbnail_url)
         tags.save()
     except Exception as e:
@@ -192,7 +194,6 @@ def download_video_audio(video_url: str, folder='.'):
             log_info(f"Already downloaded")
             return
     
-        
     if dry_run:
         return
     
@@ -221,7 +222,7 @@ def download_all_videos_in_channel(channel_url: str):
     done = 0
     folder = download_folder or channel_id
     
-    for video in scrapetube.get_channel(channel_id, limit=limit):
+    for video in scrapetube.get_channel(channel_id, limit=limit, sort_by=order):
         video_id = str(video['videoId'])
         try:  
             download_video_audio(video_id, folder)
@@ -278,6 +279,7 @@ parser.add_argument("-d", "--dry-run", help="Dry run", action="store_true")
 parser.add_argument("-m", "--limit", help="Max songs", type=int, default=None)
 parser.add_argument("-t", "--timeout", help="Socket read timeout in seconds", type=int, default=timeout_sec)
 parser.add_argument("-r", "--max-attempts", help="Max download retries", type=int, default=max_attempts)
+parser.add_argument("-o", "--order", help="Songs order in channel", choices=['newest', 'oldest', 'popular'], default=order)
 parser.add_argument("--verbose", help="Verbose output", action="store_true")
 parser.add_argument("--missing", help="Download missing only", action="store_true")
 parser.add_argument("--tags", help="Update tags of exists files", action="store_true")
@@ -297,6 +299,7 @@ missing_only = args.missing
 tags_update = args.tags
 max_attempts = args.max_attempts
 timeout_sec = args.timeout
+order = args.order
 download_folder = args.dir
 
 if args.channel:
