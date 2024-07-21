@@ -24,7 +24,7 @@ errors = {}
 missing_only = False
 tags_update = False
 verbose = False
-max_attempts = 5
+max_retries = 5
 timeout_sec = 120
 download_folder = None
 bad_symbols = r"[^a-zA-Z0-9\s\-+_=\.,\?()\[\]&^%$#@!\"\';:]"
@@ -148,11 +148,11 @@ def download_audio_stream_with_attempts(yt: YouTube, download_file: str, output_
             try:
                 yt.streams.filter(only_audio=True) \
                     .filter(mime_type="audio/mp4").order_by("abr").desc().first() \
-                    .download(filename=download_file, max_retries=max_attempts,timeout=timeout_sec)
+                    .download(filename=download_file, max_retries=max_retries,timeout=timeout_sec)
                 break
             except Exception as e:
                 attempt += 1
-                if attempt < max_attempts:
+                if attempt < max_retries:
                     log_warn(f"Trying again: {e}")
                 else:
                     raise
@@ -278,7 +278,7 @@ parser = ArgumentParser()
 parser.add_argument("-d", "--dry-run", help="Dry run", action="store_true")
 parser.add_argument("-m", "--limit", help="Max songs", type=int, default=None)
 parser.add_argument("-t", "--timeout", help="Socket read timeout in seconds", type=int, default=timeout_sec)
-parser.add_argument("-r", "--max-attempts", help="Max download retries", type=int, default=max_attempts)
+parser.add_argument("-r", "--retries", help="Max download retries", type=int, default=max_retries)
 parser.add_argument("-o", "--order", help="Songs order in channel", choices=['newest', 'oldest', 'popular'], default=order)
 parser.add_argument("--verbose", help="Verbose output", action="store_true")
 parser.add_argument("--missing", help="Download missing only", action="store_true")
@@ -297,7 +297,7 @@ limit = args.limit
 verbose = args.verbose
 missing_only = args.missing
 tags_update = args.tags
-max_attempts = args.max_attempts
+max_retries = args.retries
 timeout_sec = args.timeout
 order = args.order
 download_folder = args.dir
