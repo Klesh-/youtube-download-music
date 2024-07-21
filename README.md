@@ -32,6 +32,7 @@ $ python3 youtube_download_music.py -l "https://www.youtube.com/channel/xxx"
 -   `--verbose` - Verbose output
 -   `--missing` - Download missing only
 -   `--tags` - Update tags of exists files
+-   `--order` - Songs order in channel: `newest`, `oldest`, `popular`
 -   `--dir` - Download directory
 
 ## Installation
