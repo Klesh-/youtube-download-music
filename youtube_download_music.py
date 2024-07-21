@@ -30,6 +30,7 @@ download_folder = None
 bad_symbols = r"[^a-zA-Z0-9\s\-+_=\.,\?()\[\]&^%$#@!\"\';:]"
 thumbnail_size = 512
 order = "newest"
+meta_track_nums_use = False
 
 def log_info(*values: object):
     print(f"{Fore.GREEN}[INFO]{Fore.RESET} ", end="")
@@ -55,7 +56,6 @@ def dump_errors():
         for vid, err in errors.items():
             log_warn(f'{vid}: {err}')
 
-
 def is_limit_reached(done: int):
     if limit is not None and done >= limit:
         log_warn(f"Limit reached {limit}")
@@ -80,13 +80,14 @@ def duration_str(seconds):
     t += f'{m}:{s}'    
     return t;
         
-def generate_square_thumbnail(url: str, size: int = thumbnail_size) :
+def generate_square_thumbnail(url: str, size: int = thumbnail_size):
     log_info(f"Generating song thumbnail: {url}", size)
 
     if dry_run:
         return
-    
-    img = Image.open(io.BytesIO(requests.get(url, stream=True).content))
+
+    req = requests.get(url, stream=True, timeout=timeout_sec)
+    img = Image.open(io.BytesIO(req.content))
     img.thumbnail((size, size))
 
     width, height = img.size
@@ -120,7 +121,7 @@ def ffmpreg_trim_audio(input_file: str, output_file: str, seconds: int):
     quiet = verbose == False
     ffmpeg.run(audio_output, quiet=quiet)
 
-def set_media_tags(yt: YouTube, file: str):
+def set_media_tags(yt: YouTube, file: str, counter: int = None):
     log_info(f"Updating music tags: {file}")
     
     if dry_run:
@@ -131,7 +132,20 @@ def set_media_tags(yt: YouTube, file: str):
         tags['title'] = yt.title
         tags['artist'] = yt.author
         tags['year'] = yt.publish_date.year
-        tags['artwork'] = generate_square_thumbnail(yt.thumbnail_url)
+        tags['comment'] = yt.watch_url
+
+        if meta_track_nums_use:
+            tags['tracknumber'] = counter + 1
+        if meta_album:
+            tags['album'] = meta_album
+        if meta_genre:
+            tags['genre'] = meta_genre
+
+        try:
+            tags['artwork'] = generate_square_thumbnail(yt.thumbnail_url)
+        except Exception as e:
+            log_warn(f"Cannot set music artwork: {e}")
+
         tags.save()
     except Exception as e:
         log_warn(f"Cannot set music tags: {e}")
@@ -167,7 +181,7 @@ def parse_video_link(url: str) -> YouTube:
     else:
         return YouTube.from_id(url) 
 
-def download_video_audio(video_url: str, folder='.'):
+def download_video_audio(video_url: str, folder = '.', counter: int = None):
     yt = parse_video_link(video_url)
         
     vid_name = yt.title
@@ -189,7 +203,7 @@ def download_video_audio(video_url: str, folder='.'):
 
     if os.path.exists(final_file):
         if tags_update and missing_only:
-            set_media_tags(yt, final_file)
+            set_media_tags(yt, final_file, counter)
         if missing_only:
             log_info(f"Already downloaded")
             return
@@ -200,7 +214,7 @@ def download_video_audio(video_url: str, folder='.'):
     download_file = os.path.join(folder, f"{yt.video_id}.download.mp4")
     output_file = os.path.join(folder, f"{yt.video_id}.m4a")
     download_audio_stream_with_attempts(yt, download_file, output_file)
-    set_media_tags(yt, output_file)
+    set_media_tags(yt, output_file, counter)
     
     try:
         os.rename(output_file, final_file)
@@ -244,34 +258,33 @@ def download_all_videos_in_playlist(playlist_url: str):
     
     log_info(f"ListId: {list_id}")
    
-    done = 0
+    counter = 0
     folder = download_folder or list_id
     
     for video in scrapetube.get_playlist(list_id, limit=limit):
         video_id = str(video['videoId'])
         try:
-            download_video_audio(video_id, folder)
+            download_video_audio(video_id, folder, counter)
         except Exception as e:
             record_error(video_id, e)
 
-        done += 1
-        if is_limit_reached(done):
+        counter += 1
+        if is_limit_reached(counter):
             return
 
 def download_all_videos_in_list(list: list[str]):
     log_info(f"Downloading {len(list)} videos")
 
-    done = 0
+    counter = 0
     folder = download_folder or "."
-
     for vid in list:
         try:
-            download_video_audio(vid, folder)  
+            download_video_audio(vid, folder, counter)  
         except Exception as e:
             record_error(vid, e)
         
-        done += 1
-        if is_limit_reached(done):
+        counter += 1
+        if is_limit_reached(counter):
             return
 
 parser = ArgumentParser()
@@ -284,6 +297,9 @@ parser.add_argument("--verbose", help="Verbose output", action="store_true")
 parser.add_argument("--missing", help="Download missing only", action="store_true")
 parser.add_argument("--tags", help="Update tags of exists files", action="store_true")
 parser.add_argument("--dir", help="Download directory", default=None)
+parser.add_argument("--album", help="Set tracks album metadata")
+parser.add_argument("--genre", help="Set tracks genre metadata")
+parser.add_argument("--track-numbers", help="Set tracks numbers metadata", action="store_true")
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument("-v", "--videos", nargs="+", help="YouTube video URLs | Ids")
@@ -301,6 +317,9 @@ max_retries = args.retries
 timeout_sec = args.timeout
 order = args.order
 download_folder = args.dir
+meta_album = args.album
+meta_genre = args.genre
+meta_track_nums_use = args.track_numbers
 
 if args.channel:
     download_all_videos_in_channel(args.channel)

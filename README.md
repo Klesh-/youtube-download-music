@@ -14,26 +14,32 @@ $ python3 youtube_download_music.py -v "https://www.youtube.com/watch?v=xxx"
 ### Download all songs from playlist:
 
 ```sh
-$ python3 youtube_download_music.py -l "https://www.youtube.com/watch?v=list=xxx"
+$ python3 youtube_download_music.py -l "https://www.youtube.com/watch?list=xxx"
 ```
 
 ### Download all songs from channel:
 
 ```sh
-$ python3 youtube_download_music.py -l "https://www.youtube.com/channel/xxx"
+$ python3 youtube_download_music.py -c "https://www.youtube.com/channel/xxx"
 ```
 
 #### Options `--help`
 
+-   `-v`, `--videos` - YouTube video URLs | Ids
+-   `-l`, `--playlist` - YouTube playlist URL | Id
+-   `-c`, `--channel` - YouTube channel URL | Id
 -   `--limit` - Limit number of sings to download
 -   `--dry-run` - For testing purposes
 -   `--timeout` - Socket read timeout in seconds
 -   `--retries` - Max download retries
 -   `--verbose` - Verbose output
--   `--missing` - Download missing only
+-   `--missing` - Download missing files only
 -   `--tags` - Update tags of exists files
 -   `--order` - Songs order in channel: `newest`, `oldest`, `popular`
 -   `--dir` - Download directory
+-   `--album` - Set tracks album metadata
+-   `--genre` - Set tracks genre metadata
+-   `--track-numbers` - Set tracks numbers metadata
 
 ## Installation
 
